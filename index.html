@@ -63,14 +63,14 @@
     if (!window.supabaseClient) {
     window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
-const supabase = window.supabaseClient;
+const sb = window.supabaseClient;
     let currentFilter = 'all';
 
     async function loadItems() {
         const container = document.getElementById('itemsList');
         container.innerHTML = '<div class="loading">加载中...</div>';
         try {
-            const { data: items, error } = await supabase.from('lost_items').select('*').order('created_at', { ascending: false });
+            const { data: items, error } = await sb.from('lost_items').select('*').order('created_at', { ascending: false });
             if (error) throw error;
             let filtered = items || [];
             if (currentFilter === 'pending') filtered = filtered.filter(i => i.status === 'pending');
@@ -98,7 +98,7 @@ async function addItem(name, location, contact, description) {
         const btn = document.getElementById('publishBtn'), originalText = btn.innerText;
         btn.innerText = '发布中...'; btn.disabled = true;
         try {
-            const { error } = await supabase.from('lost_items').insert([{ name: name.trim(), location: location.trim(), contact: contact.trim(), description: description.trim() || '无', status: 'pending' }]);
+            const { error } = await sb.from('lost_items').insert([{ name: name.trim(), location: location.trim(), contact: contact.trim(), description: description.trim() || '无', status: 'pending' }]);
             if (error) throw error;
             document.getElementById('itemName').value = ''; document.getElementById('itemLocation').value = ''; document.getElementById('itemContact').value = ''; document.getElementById('itemDesc').value = '';
             await loadItems(); return true;
@@ -108,17 +108,17 @@ async function addItem(name, location, contact, description) {
 
     async function toggleStatus(id) {
         try {
-            const { data, error: fetchError } = await supabase.from('lost_items').select('status').eq('id', id).single();
+            const { data, error: fetchError } = await sb.from('lost_items').select('status').eq('id', id).single();
             if (fetchError) throw fetchError;
             const newStatus = data.status === 'pending' ? 'resolved' : 'pending';
-            await supabase.from('lost_items').update({ status: newStatus }).eq('id', id);
+            await sb.from('lost_items').update({ status: newStatus }).eq('id', id);
             await loadItems();
         } catch (err) { alert('操作失败'); }
     }
 
     async function deleteItem(id) {
         if (!confirm('确定删除吗？')) return;
-        try { await supabase.from('lost_items').delete().eq('id', id); await loadItems(); } 
+        try { await sb.from('lost_items').delete().eq('id', id); await loadItems(); } 
         catch (err) { alert('删除失败'); }
     }
 
