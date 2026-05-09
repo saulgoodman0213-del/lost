@@ -61,7 +61,9 @@
     const SUPABASE_URL = 'https://hupggvjufyurtzjcddf.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_Tulr9saO4gT6G0ttoKxEKw_FrERJUD7';
     
-   var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (typeof supabase === 'undefined') {
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
     let currentFilter = 'all';
 
     async function loadItems() {
