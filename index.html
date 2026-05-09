@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校园失物招领</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, sans-serif; }
+        body { background: #f3f4f6; padding: 2rem 1rem; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .sub { border-left: 4px solid #3b82f6; padding-left: 1rem; margin-bottom: 2rem; color: #4b5563; }
+        .card { background: white; border-radius: 24px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 1rem; }
+        input, textarea { width: 100%; padding: 0.7rem; border: 1px solid #d1d5db; border-radius: 16px; background: #f9fafb; }
+        button { background: #3b82f6; border: none; padding: 0.6rem 1.5rem; border-radius: 40px; color: white; cursor: pointer; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-outline { background: transparent; border: 1px solid #d1d5db; color: #374151; }
+        .stats-bar { display: flex; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .filter-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px,1fr)); gap: 1rem; }
+        .item-card { background: white; border-radius: 20px; padding: 1rem; border: 1px solid #e5e7eb; }
+        .item-card.resolved { opacity: 0.7; background: #fefce8; border-left: 5px solid #10b981; }
+        .status-badge { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: #fef3c7; }
+        .status-badge.resolved { background: #d1fae5; }
+        .detail { color: #4b5563; font-size: 0.85rem; margin: 0.4rem 0; }
+        .contact { background: #f3f4f6; padding: 0.2rem 0.5rem; border-radius: 16px; font-size: 0.75rem; display: inline-block; }
+        .card-actions { margin-top: 0.6rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
+        .btn-resolve { background: #10b981; font-size: 0.75rem; padding: 0.3rem 0.7rem; }
+        .btn-delete { background: #ef4444; font-size: 0.75rem; padding: 0.3rem 0.7rem; }
+        .loading { text-align: center; padding: 2rem; color: #6b7280; }
+        footer { margin-top: 2rem; text-align: center; font-size: 0.7rem; color: #6b7280; }
+    </style>
+</head>
+     <h1>🎒 校园失物招领</h1>
+    <div class="sub">数据云端存储 · 所有人实时共享</div>
+    <div class="card">
+        <div class="form-title">➕ 发布新失物</div>
+        <div class="form-grid">
+            <input type="text" id="itemName" placeholder="物品名称 *">
+            <input type="text" id="itemLocation" placeholder="地点 *">
+            <input type="text" id="itemContact" placeholder="联系方式 *">
+            <textarea id="itemDesc" rows="2" placeholder="详细描述"></textarea>
+        </div>
+        <button id="publishBtn">📌 发布</button>
+    </div>
+    <div class="stats-bar">
+        <span>📋 所有记录</span>
+        <div class="filter-group">
+            <button id="filterAll" class="btn-outline">全部</button>
+            <button id="filterPending" class="btn-outline">待认领</button>
+            <button id="filterResolved" class="btn-outline">已归还</button>
+        </div>
+    </div>
+    <div id="itemsList" class="items-grid">加载中...</div>
+    <footer>🔒 数据存储在 Supabase</footer>
+</div>
+<script>
+    // ===== Supabase 配置（已填入） =====
+    const SUPABASE_URL = 'https://hupggvjufyurtzjcddf.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_Tulr9saO4gT6G0ttoKxEKw_FrERJUD7';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let currentFilter = 'all';
+
+    async function loadItems() {
+        const container = document.getElementById('itemsList');
+        container.innerHTML = '<div class="loading">加载中...</div>';
+        try {
+            const { data: items, error } = await supabase.from('lost_items').select('*').order('created_at', { ascending: false });
+            if (error) throw error;
+            let filtered = items || [];
+            if (currentFilter === 'pending') filtered = filtered.filter(i => i.status === 'pending');
+            if (currentFilter === 'resolved') filtered = filtered.filter(i => i.status === 'resolved');
+            if (filtered.length === 0) { container.innerHTML = '<div class="loading">✨ 暂无记录，发布第一条吧</div>'; return; }
+            container.innerHTML = filtered.map(item => `
+                <div class="item-card ${item.status === 'resolved' ? 'resolved' : ''}">
+                    <div><strong>📌 ${escapeHtml(item.name)}</strong> <span class="status-badge ${item.status === 'resolved' ? 'resolved' : ''}">${item.status === 'resolved' ? '✅ 已归还' : '⏳ 待认领'}</span></div>
+                    <div class="detail">📍 ${escapeHtml(item.location)}</div>
+                    <div class="detail">📝 ${escapeHtml(item.description || '无')}</div>
+                    <div class="detail">📅 ${new Date(item.created_at).toLocaleString()}</div>
+                    <div><span class="contact">📞 ${escapeHtml(item.contact)}</span></div>
+                    <div class="card-actions">
+                        <button class="btn-resolve" data-id="${item.id}">${item.status === 'resolved' ? '↩️ 标记待认领' : '✅ 标记已归还'}</button>
+                        <button class="btn-delete" data-id="${item.id}">🗑️ 删除</button>
+                    </div>
+                </div>
+            `).join('');
+            document.querySelectorAll('.btn-resolve').forEach(btn => btn.onclick = () => toggleStatus(btn.dataset.id));
+            document.querySelectorAll('.btn-delete').forEach(btn => btn.onclick = () => deleteItem(btn.dataset.id));
+        } catch (err) { console.error(err); container.innerHTML = '<div class="loading">❌ 加载失败，请检查配置</div>'; }
+    }
+async function addItem(name, location, contact, description) {
+        if (!name.trim() || !location.trim() || !contact.trim()) { alert('请填写完整'); return false; }
+        const btn = document.getElementById('publishBtn'), originalText = btn.innerText;
+        btn.innerText = '发布中...'; btn.disabled = true;
+        try {
+            const { error } = await supabase.from('lost_items').insert([{ name: name.trim(), location: location.trim(), contact: contact.trim(), description: description.trim() || '无', status: 'pending' }]);
+            if (error) throw error;
+            document.getElementById('itemName').value = ''; document.getElementById('itemLocation').value = ''; document.getElementById('itemContact').value = ''; document.getElementById('itemDesc').value = '';
+            await loadItems(); return true;
+        } catch (err) { alert('发布失败: ' + err.message); return false; }
+        finally { btn.innerText = originalText; btn.disabled = false; }
+    }
+
+    async function toggleStatus(id) {
+        try {
+            const { data, error: fetchError } = await supabase.from('lost_items').select('status').eq('id', id).single();
+            if (fetchError) throw fetchError;
+            const newStatus = data.status === 'pending' ? 'resolved' : 'pending';
+            await supabase.from('lost_items').update({ status: newStatus }).eq('id', id);
+            await loadItems();
+        } catch (err) { alert('操作失败'); }
+    }
+
+    async function deleteItem(id) {
+        if (!confirm('确定删除吗？')) return;
+        try { await supabase.from('lost_items').delete().eq('id', id); await loadItems(); } 
+        catch (err) { alert('删除失败'); }
+    }
+
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
+
+    document.getElementById('publishBtn').onclick = () => addItem(itemName.value, itemLocation.value, itemContact.value, itemDesc.value);
+    document.getElementById('filterAll').onclick = () => { currentFilter = 'all'; loadItems(); };
+    document.getElementById('filterPending').onclick = () => { currentFilter = 'pending'; loadItems(); };
+    document.getElementById('filterResolved').onclick = () => { currentFilter = 'resolved'; loadItems(); };
+    loadItems();
+</script>
+</body>
+</html>
+
+<body>
+<div class="container">
