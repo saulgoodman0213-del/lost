@@ -60,8 +60,10 @@
     // ===== Supabase 配置（已填入） =====
     const SUPABASE_URL = 'https://fspnxptovfmayufdrvip.supabase.co/rest/v1/';
     const SUPABASE_ANON_KEY = 'sb_publishable_Tulr9saO4gT6G0ttoKxEKw_FrERJUD7';
-    
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (!window.supabaseClient) {
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+const supabase = window.supabaseClient;
     let currentFilter = 'all';
 
     async function loadItems() {
