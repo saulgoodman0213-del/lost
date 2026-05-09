@@ -78,7 +78,7 @@
 
 <script>
     // ===== Supabase 配置 =====
-    const SUPABASE_URL = 'https://fspnxptovfmayufdrvip.supabase.co';
+     SUPABASE_URL = 'https://fspnxptovfmayufdrvip.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzcG54cHRvdmZtYXl1ZmRydmlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTcwNTgsImV4cCI6MjA5Mzg5MzA1OH0.1DsM6beIGGFbpqztyUNwoovOS4jVgfUe19OeLpMlIsU';
     
     if (!window.supabaseClient) {
@@ -120,16 +120,20 @@
     }
 
     // 添加示例数据
-    async function addSampleData() {
-        const { data: existing, count } = await sb.from('lost_items').select('id', { count: 'exact', head: true });
-        if (!existing || existing.length === 0) {
-            await sb.from('lost_items').insert([
-                { name: '黑色书包', location: '图书馆', contact: '138****1111', description: '内含笔记本电脑和课本', status: 'pending' },
-                { name: '校园卡', location: '一食堂', contact: '张同学 微信:zhang123', description: '卡套是皮卡丘图案', status: 'pending' }
-            ]);
-            loadItems();
-        }
+   // 添加示例数据（只添加一次）
+async function addSampleData() {
+    // 用 count 判断，不要用 data
+    const { count, error } = await sb.from('lost_items').select('*', { count: 'exact', head: true });
+    
+    // 只有当表里完全没有数据时才添加
+    if (!error && count === 0) {
+        await sb.from('lost_items').insert([
+            { name: '黑色书包', location: '图书馆', contact: '138****1111', description: '内含笔记本电脑和课本', status: 'pending' },
+            { name: '校园卡', location: '一食堂', contact: '张同学 微信:zhang123', description: '卡套是皮卡丘图案', status: 'pending' }
+        ]);
+        // 注意：这里不要调用 loadItems()，让外面的 loadItems() 统一刷新
     }
+}
 
     async function addItem(name, location, contact, description) {
         if (!name.trim() || !location.trim() || !contact.trim()) { alert('请填写完整'); return false; }
